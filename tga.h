@@ -161,10 +161,13 @@ namespace tga {
       return false;
     }
 
+    // Returns the number of bytes per pixel needed in an image
+    // created with this Header information.
     int bytesPerPixel() const {
-      if (bitsPerPixel <= 8) return 1;
-      else if (bitsPerPixel <= 16) return 2;
-      else return 4;
+      if (isRgb())
+        return 4;
+      else
+        return 1;
     }
 
   };
