@@ -102,6 +102,9 @@ namespace tga {
     std::string imageId;
     Colormap colormap;
 
+    bool leftToRight() const { return !(imageDescriptor & 0x10); }
+    bool topToBottom() const { return (imageDescriptor & 0x20); }
+
     bool hasColormap() const {
       return (colormapLength > 0);
     }
@@ -172,6 +175,41 @@ namespace tga {
 
   };
 
+  namespace details {
+
+  class ImageIterator {
+  public:
+    ImageIterator();
+    ImageIterator(const Header& header, Image& image);
+
+    // Put a pixel value into the image and advance the iterator.
+    template<typename T>
+    bool putPixel(const T value) {
+      *((T*)m_ptr) = value;
+      return advance();
+    }
+
+    // Get one pixel from the image and advance the iterator.
+    template<typename T>
+    T getPixel() {
+      T value = *((T*)m_ptr);
+      advance();
+      return value;
+    }
+
+  public:
+    bool advance();
+    void calcPtr();
+
+    Image* m_image;
+    int m_x, m_y;
+    int m_w, m_h;
+    int m_dx, m_dy;
+    uint8_t* m_ptr;
+  };
+
+  } // namespace details
+
   class FileInterface {
   public:
     virtual ~FileInterface() { }
@@ -206,9 +244,9 @@ namespace tga {
     bool m_ok;
   };
 
-  class DecoderDelegate {
+  class Delegate {
   public:
-    virtual ~DecoderDelegate() {}
+    virtual ~Delegate() {}
     // Must true if we should continue the decoding process.
     virtual bool notifyProgress(double progress) = 0;
   };
@@ -226,7 +264,7 @@ namespace tga {
     // Reads the image.
     bool readImage(const Header& header,
                    Image& image,
-                   DecoderDelegate* delegate = nullptr);
+                   Delegate* delegate = nullptr);
 
     // Fixes alpha channel for images with invalid alpha values (this
     // is optional, in case you want to preserve the original data
@@ -250,29 +288,41 @@ namespace tga {
     uint32_t read24AsRgb();
     uint32_t read16AsRgb();
 
-    class ImageDataIterator {
-    public:
-      ImageDataIterator();
-      ImageDataIterator(Image& image,
-                        bool leftToRight,
-                        bool topToBottom,
-                        int w, int h);
-      template<typename T>
-      bool next(const T value);
-    private:
-      bool advance();
-      void calcPtr();
+    FileInterface* m_file;
+    bool m_hasAlpha = false;
+    details::ImageIterator m_iterator;
+  };
 
-      Image* m_image;
-      int m_x, m_y;
-      int m_w, m_h;
-      int m_dx, m_dy;
-      uint8_t* m_ptr;
-    };
+  class Encoder {
+  public:
+    Encoder(FileInterface* file);
+
+    // Writes the header + colormap
+    void writeHeader(const Header& header);
+    void writeImage(const Header& header,
+                    const Image& image,
+                    Delegate* delegate = nullptr);
+    void writeFooter();
+
+  private:
+    template<typename T>
+    void writeRleScanline(const int w, const Image& image,
+                          int y, void (Encoder::*writePixel)(color_t));
+
+    template<typename T>
+    void countRepeatedPixels(const int w, const Image& image,
+                             int x0, int y, int& offset, int& count);
+
+    void write8(uint32_t value);
+    void write16(uint32_t value);
+    void write32(uint32_t value);
+    void write16Rgb(uint32_t c);
+    void write24Rgb(uint32_t c);
+    void write32Rgb(uint32_t c);
 
     FileInterface* m_file;
     bool m_hasAlpha = false;
-    ImageDataIterator m_iterator;
+    details::ImageIterator m_iterator;
   };
 
 } // namespace tga

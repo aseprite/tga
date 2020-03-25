@@ -118,16 +118,11 @@ void Decoder::readColormap(Header& header)
 
 bool Decoder::readImage(const Header& header,
                         Image& image,
-                        DecoderDelegate* delegate)
+                        Delegate* delegate)
 {
   // Bit 4 means right-to-left, else left-to-right
   // Bit 5 means top-to-bottom, else bottom-to-top
-  m_iterator = ImageDataIterator(
-    image,
-    (header.imageDescriptor & 0x10) ? false: true,
-    (header.imageDescriptor & 0x20) ? true: false,
-    header.width,
-    header.height);
+  m_iterator = details::ImageIterator(header, image);
 
   for (int y=0; y<header.height; ++y) {
     switch (header.imageType) {
@@ -161,7 +156,7 @@ bool Decoder::readImage(const Header& header,
 
       case UncompressedGray:
         assert(header.bitsPerPixel == 8);
-        if (readUncompressedData<uint16_t>(header.width, &Decoder::read8))
+        if (readUncompressedData<uint8_t>(header.width, &Decoder::read8))
           return true;
         break;
 
@@ -194,7 +189,7 @@ bool Decoder::readImage(const Header& header,
 
       case RleGray:
         assert(header.bitsPerPixel == 8);
-        if (readRleData<uint16_t>(header.width, &Decoder::read8))
+        if (readRleData<uint8_t>(header.width, &Decoder::read8))
           return true;
         break;
     }
@@ -256,7 +251,7 @@ template<typename T>
 bool Decoder::readUncompressedData(const int w, color_t (Decoder::*readPixel)())
 {
   for (int x=0; x<w; ++x) {
-    if (m_iterator.next<T>((this->*readPixel)()))
+    if (m_iterator.putPixel<T>((this->*readPixel)()))
       return true;
   }
   return false;
@@ -277,14 +272,14 @@ bool Decoder::readRleData(const int w, color_t (Decoder::*readPixel)())
       x += c;
       const T pixel = (this->*readPixel)();
       while (c-- > 0)
-        if (m_iterator.next<T>(pixel))
+        if (m_iterator.putPixel<T>(pixel))
           return true;
     }
     else {
       ++c;
       x += c;
       while (c-- > 0) {
-        if (m_iterator.next<T>((this->*readPixel)()))
+        if (m_iterator.putPixel<T>((this->*readPixel)()))
           return true;
       }
     }
@@ -357,60 +352,6 @@ uint32_t Decoder::read16AsRgb()
               scale_5bits_to_8bits((v >> 5) & 0x1F),
               scale_5bits_to_8bits(v & 0x1F),
               a);
-}
-
-Decoder::ImageDataIterator::ImageDataIterator()
-  : m_image(nullptr)
-{
-}
-
-Decoder::ImageDataIterator::ImageDataIterator(
-  Image& image,
-  bool leftToRight,
-  bool topToBottom,
-  int w, int h)
-  : m_image(&image)
-  , m_x(leftToRight ? 0: w-1)
-  , m_y(topToBottom ? 0: h-1)
-  , m_w(w)
-  , m_h(h)
-  , m_dx(leftToRight ? +1: -1)
-  , m_dy(topToBottom ? +1: -1)
-{
-  calcPtr();
-}
-
-template<typename T>
-bool Decoder::ImageDataIterator::next(const T value)
-{
-  *((T*)m_ptr) = value;
-  return advance();
-}
-
-bool Decoder::ImageDataIterator::advance()
-{
-  m_x += m_dx;
-  m_ptr += m_dx*m_image->bytesPerPixel;
-
-  if ((m_dx < 0 && m_x < 0) ||
-      (m_dx > 0 && m_x == m_w)) {
-    m_x = (m_dx > 0 ? 0: m_w-1);
-    m_y += m_dy;
-    if ((m_dy < 0 && m_y < 0) ||
-        (m_dy > 0 && m_y == m_h)) {
-      return true;
-    }
-    calcPtr();
-  }
-  return false;
-}
-
-void Decoder::ImageDataIterator::calcPtr()
-{
-  m_ptr =
-    m_image->pixels
-    + m_image->rowstride*m_y
-    + m_image->bytesPerPixel*m_x;
 }
 
 } // namespace tga

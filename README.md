@@ -3,6 +3,7 @@
 > Distributed under [MIT license](LICENSE.txt)
 
 Library to read/write [Truevision TGA/TARGA files](https://en.wikipedia.org/wiki/Truevision_TGA).
+Tested with [libfuzzer](https://github.com/aseprite/fuzz).
 
 Example:
 
