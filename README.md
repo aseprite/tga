@@ -34,6 +34,11 @@ int main(int argc, char* argv[])
   if (!decoder.readImage(header, image, nullptr))
     return 3;
 
+  // Optional post-process to fix the alpha channel in
+  // some TGA files where alpha=0 for all pixels when
+  // it shouldn't.
+  decoder.postProcessImage(header, image);
+
   return 0;
 }
 ```
