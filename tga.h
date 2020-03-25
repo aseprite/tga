@@ -228,16 +228,14 @@ namespace tga {
                    Image& image,
                    DecoderDelegate* delegate = nullptr);
 
+    // Fixes alpha channel for images with invalid alpha values (this
+    // is optional, in case you want to preserve the original data
+    // from the file, don't use it).
+    void postProcessImage(const Header& header,
+                          Image& image);
+
   private:
     void readColormap(Header& header);
-
-    bool preReadImage(const Header& header,
-                      Image& image,
-                      DecoderDelegate* delegate);
-
-    // Fixes alpha channel for images with invalid alpha channel values
-    void postProcessImageData(const Header& header,
-                              Image& image);
 
     template<typename T>
     bool readUncompressedData(const int w, uint32_t (Decoder::*readPixel)());
@@ -275,7 +273,6 @@ namespace tga {
     FileInterface* m_file;
     bool m_hasAlpha = false;
     ImageDataIterator m_iterator;
-    std::vector<uint32_t> m_alphaHistogram;
   };
 
 } // namespace tga

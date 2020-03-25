@@ -17,7 +17,6 @@ static inline int scale_5bits_to_8bits(int v) {
 
 Decoder::Decoder(FileInterface* file)
   : m_file(file)
-  , m_alphaHistogram(256)
 {
 }
 
@@ -61,9 +60,15 @@ bool Decoder::readHeader(Header& header)
     (header.bitsPerPixel == 16 && alphaBits == 1);
 #else
   // So to detect if a 32bpp or 16bpp TGA image has alpha, we'll use
-  // the "m_alphaHistogram" to check if there are different alpha
-  // values. If there is only one alpha value (all 0 or all 255),
-  // we create an opaque image anyway.
+  // the "alpha histogram" in postProcessImage() to check if there are
+  // different alpha values. If there is only one alpha value (all 0
+  // or all 255), we create an opaque image anyway. The only exception
+  // to this rule is when all pixels are black and transparent
+  // (RGBA=0), that is the only case when an image is fully
+  // transparent.
+  //
+  // Note: This same heuristic is used in apps like macOS Preview:
+  // https://twitter.com/davidcapello/status/1242803110868893697
   m_hasAlpha =
     (header.bitsPerPixel == 32) ||
     (header.bitsPerPixel == 16);
@@ -114,19 +119,6 @@ void Decoder::readColormap(Header& header)
 bool Decoder::readImage(const Header& header,
                         Image& image,
                         DecoderDelegate* delegate)
-{
-  if (preReadImage(header, image, delegate)) {
-    postProcessImageData(header, image);
-    return true;
-  }
-  else {
-    return false;
-  }
-}
-
-bool Decoder::preReadImage(const Header& header,
-                           Image& image,
-                           DecoderDelegate* delegate)
 {
   // Bit 4 means right-to-left, else left-to-right
   // Bit 5 means top-to-bottom, else bottom-to-top
@@ -216,21 +208,38 @@ bool Decoder::preReadImage(const Header& header,
   return true;
 }
 
-// Fix alpha channel for images with invalid alpha channel values
-void Decoder::postProcessImageData(const Header& header,
-                                   Image& image)
+void Decoder::postProcessImage(const Header& header,
+                               Image& image)
 {
+  // The post-processing is only for RGB images with possible invalid
+  // alpha information.
   if (!header.isRgb() || !m_hasAlpha)
     return;
 
-  int count = 0;
-  for (int i=0; i<256; ++i)
-    if (m_alphaHistogram[i] > 0)
-      ++count;
+  bool transparentImage = true;
+  bool blackImage = true;
 
-  // If all pixels are transparent (alpha=0), make all pixels opaque
-  // (alpha=255).
-  if (count == 1 && m_alphaHistogram[0] > 0) {
+  for (int y=0; y<header.height; ++y) {
+    auto p = (uint32_t*)(image.pixels + y*image.rowstride);
+    for (int x=0; x<header.width; ++x, ++p) {
+      color_t c = *p;
+      if (transparentImage &&
+          geta(c) != 0) {
+        transparentImage = false;
+      }
+      if (blackImage &&
+          (getr(c) != 0 ||
+           getg(c) != 0 ||
+           getb(c) != 0)) {
+        blackImage = false;
+      }
+    }
+  }
+
+  // If the image is fully transparent (all pixels with alpha=0) and
+  // there are pixels with RGB != 0 (!blackImage), we have to make the
+  // image completely opaque (alpha=255).
+  if (transparentImage && !blackImage) {
     for (int y=0; y<header.height; ++y) {
       auto p = (uint32_t*)(image.pixels + y*image.rowstride);
       for (int x=0; x<header.width; ++x, ++p) {
@@ -325,9 +334,6 @@ uint32_t Decoder::read32AsRgb()
   uint8_t a = read8();
   if (!m_hasAlpha)
     a = 255;
-  else {
-    ++m_alphaHistogram[a];
-  }
   return rgba(r, g, b, a);
 }
 
@@ -342,16 +348,15 @@ uint32_t Decoder::read24AsRgb()
 uint32_t Decoder::read16AsRgb()
 {
   const uint16_t v = read16();
-  uint8_t alpha = 255;
+  uint8_t a = 255;
   if (m_hasAlpha) {
     if ((v & 0x8000) == 0)    // Transparent bit
-      alpha = 0;
-    ++m_alphaHistogram[alpha];
+      a = 0;
   }
   return rgba(scale_5bits_to_8bits((v >> 10) & 0x1F),
               scale_5bits_to_8bits((v >> 5) & 0x1F),
               scale_5bits_to_8bits(v & 0x1F),
-              alpha);
+              a);
 }
 
 Decoder::ImageDataIterator::ImageDataIterator()
