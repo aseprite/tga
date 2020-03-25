@@ -6,6 +6,8 @@
 
 #include "tga.h"
 
+#include <cassert>
+
 namespace tga {
 
 template<typename T>
