@@ -6,6 +6,7 @@
 
 #include "tga.h"
 
+#include <algorithm>
 #include <cassert>
 
 namespace tga {
