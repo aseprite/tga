@@ -69,8 +69,8 @@ void Encoder::writeImage(const Header& header,
                          const Image& image,
                          Delegate* delegate)
 {
-  const int h = header.width;
   const int w = header.width;
+  const int h = header.height;
 
   m_iterator = details::ImageIterator(header, const_cast<Image&>(image));
 
