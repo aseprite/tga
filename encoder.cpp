@@ -203,7 +203,7 @@ void Encoder::countRepeatedPixels(const int w,
     const color_t p = it.getPixel<T>();
 
     int u = x+1;
-    auto it_in_u = it;
+    auto next_it = it;
 
     for (; u<w; ++u) {
       const color_t q = it.getPixel<T>();
@@ -217,8 +217,8 @@ void Encoder::countRepeatedPixels(const int w,
       return;
     }
 
-    x = u;
-    it = it_in_u;
+    ++x;
+    it = next_it;
   }
 
   offset = w - x0;
