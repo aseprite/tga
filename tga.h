@@ -1,5 +1,5 @@
 // Aseprite TGA Library
-// Copyright (C) 2020  Igara Studio S.A.
+// Copyright (C) 2020-2021  Igara Studio S.A.
 //
 // This file is released under the terms of the MIT license.
 // Read LICENSE.txt for more information.
@@ -247,7 +247,7 @@ namespace tga {
   class Delegate {
   public:
     virtual ~Delegate() {}
-    // Must true if we should continue the decoding process.
+    // Must return true if we should continue the decoding process.
     virtual bool notifyProgress(double progress) = 0;
   };
 
