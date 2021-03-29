@@ -1,6 +1,7 @@
 # Aseprite TGA Library
-# Copyright (C) 2020  Igara Studio S.A.
-project(tgalib)
+# Copyright (C) 2020-2021  Igara Studio S.A.
+
+project(tga)
 
 add_library(tga-lib
   decoder.cpp
@@ -10,5 +11,3 @@ add_library(tga-lib
 
 set_target_properties(tga-lib PROPERTIES PUBLIC_HEADER "tga.h")
 install(TARGETS tga-lib ARCHIVE DESTINATION lib PUBLIC_HEADER DESTINATION include)
-
-
