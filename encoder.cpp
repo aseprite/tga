@@ -90,7 +90,7 @@ void Encoder::writeImage(const Header& header,
     case tga::RleIndexed:
     case tga::RleGray:
       for (int y=0; y<h; ++y) {
-        writeRleScanline<uint8_t>(w, image, y, &Encoder::write8);
+        writeRleScanline<uint8_t>(w, image, &Encoder::write8Color);
 
         if (delegate && !delegate->notifyProgress(float(y) / float(h)))
           return;
@@ -135,9 +135,9 @@ void Encoder::writeImage(const Header& header,
       for (int y=0; y<h; ++y) {
         switch (header.bitsPerPixel) {
           case 15:
-          case 16: writeRleScanline<uint32_t>(w, image, y, &Encoder::write16Rgb); break;
-          case 24: writeRleScanline<uint32_t>(w, image, y, &Encoder::write24Rgb); break;
-          case 32: writeRleScanline<uint32_t>(w, image, y, &Encoder::write32Rgb); break;
+          case 16: writeRleScanline<uint32_t>(w, image, &Encoder::write16Rgb); break;
+          case 24: writeRleScanline<uint32_t>(w, image, &Encoder::write24Rgb); break;
+          case 32: writeRleScanline<uint32_t>(w, image, &Encoder::write32Rgb); break;
           default:
             assert(false);
             return;
@@ -152,19 +152,20 @@ void Encoder::writeImage(const Header& header,
 
 template<typename T>
 void Encoder::writeRleScanline(const int w,
-                               const Image& image, int y,
-                               void (Encoder::*writePixel)(uint32_t))
+                               const Image& image,
+                               void (Encoder::*writePixel)(color_t))
 {
   int x = 0;
   while (x < w) {
     int count, offset;
-    countRepeatedPixels<T>(w, image, x, y, offset, count);
+    countRepeatedPixels<T>(w, image, x, offset, count);
 
     // Save a sequence of pixels with different colors
     while (offset > 0) {
       const int n = std::min(offset, 128);
 
-      write8(n - 1);
+      assert(n >= 1 && n <= 128);
+      write8(static_cast<uint8_t>(n - 1));
       for (int i=0; i<n; ++i) {
         const color_t c = m_iterator.getPixel<T>();
         (this->*writePixel)(c);
@@ -183,7 +184,8 @@ void Encoder::writeRleScanline(const int w,
         assert(c == c2);
       }
 
-      write8(0x80 | (n - 1));
+      assert(n >= 1 && n <= 128);
+      write8(0x80 | static_cast<uint8_t>(n - 1));
       (this->*writePixel)(c);
       count -= n;
       x += n;
@@ -194,7 +196,7 @@ void Encoder::writeRleScanline(const int w,
 
 template<typename T>
 void Encoder::countRepeatedPixels(const int w,
-                                  const Image& image, int x0, int y,
+                                  const Image& image, int x0,
                                   int& offset, int& count)
 {
   auto it = m_iterator;
@@ -225,12 +227,12 @@ void Encoder::countRepeatedPixels(const int w,
   count = 0;
 }
 
-void Encoder::write8(uint32_t value)
+void Encoder::write8(uint8_t value)
 {
   m_file->write8(value);
 }
 
-void Encoder::write16(uint32_t value)
+void Encoder::write16(uint16_t value)
 {
   // Little endian
   m_file->write8(value & 0x00FF);
@@ -240,18 +242,18 @@ void Encoder::write16(uint32_t value)
 void Encoder::write32(uint32_t value)
 {
   // Little endian
-  m_file->write8((int)value & 0x00FF);
-  m_file->write8((int)((value & 0x0000FF00L) >> 8));
-  m_file->write8((int)((value & 0x00FF0000L) >> 16));
-  m_file->write8((int)((value & 0xFF000000L) >> 24));
+  m_file->write8(value & 0xFF);
+  m_file->write8((value >> 8) & 0xFF);
+  m_file->write8((value >> 16) & 0xFF);
+  m_file->write8((value >> 24) & 0xFF);
 }
 
-void Encoder::write16Rgb(uint32_t c)
+void Encoder::write16Rgb(color_t c)
 {
-  const int r = getr(c);
-  const int g = getg(c);
-  const int b = getb(c);
-  const int a = geta(c);
+  const uint8_t r = getr(c);
+  const uint8_t g = getg(c);
+  const uint8_t b = getb(c);
+  const uint8_t a = geta(c);
   const uint16_t v =
     ((r>>3) << 10) |
     ((g>>3) << 5) |
@@ -260,14 +262,14 @@ void Encoder::write16Rgb(uint32_t c)
   write16(v);
 }
 
-void Encoder::write24Rgb(uint32_t c)
+void Encoder::write24Rgb(color_t c)
 {
   write8(getb(c));
   write8(getg(c));
   write8(getr(c));
 }
 
-void Encoder::write32Rgb(uint32_t c)
+void Encoder::write32Rgb(color_t c)
 {
   write8(getb(c));
   write8(getg(c));

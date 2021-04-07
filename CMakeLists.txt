@@ -3,6 +3,9 @@
 
 project(tga)
 
+# We need C++11 because we use the "override" keyword
+set(CMAKE_CXX_STANDARD 11)
+
 add_library(tga-lib
   decoder.cpp
   encoder.cpp

@@ -10,7 +10,7 @@
 
 namespace tga {
 
-static inline int scale_5bits_to_8bits(int v) {
+static inline uint8_t scale_5bits_to_8bits(uint8_t v) {
   assert(v >= 0 && v < 32);
   return (v << 3) | (v >> 2);
 }
@@ -91,7 +91,7 @@ void Decoder::readColormap(Header& header)
 
       case 15:
       case 16: {
-        const int c = read16();
+        const uint16_t c = read16();
         header.colormap[i] =
           rgba(scale_5bits_to_8bits((c >> 10) & 0x1F),
                scale_5bits_to_8bits((c >> 5) & 0x1F),
@@ -101,10 +101,10 @@ void Decoder::readColormap(Header& header)
 
       case 24:
       case 32: {
-        const int b = read8();
-        const int g = read8();
-        const int r = read8();
-        int a;
+        const uint8_t b = read8();
+        const uint8_t g = read8();
+        const uint8_t r = read8();
+        uint8_t a;
         if (header.colormapDepth == 32)
           a = read8();
         else
@@ -129,7 +129,7 @@ bool Decoder::readImage(const Header& header,
 
       case UncompressedIndexed:
         assert(header.bitsPerPixel == 8);
-        if (readUncompressedData<uint8_t>(header.width, &Decoder::read8))
+        if (readUncompressedData<uint8_t>(header.width, &Decoder::read8Color))
           return true;
         break;
 
@@ -156,13 +156,13 @@ bool Decoder::readImage(const Header& header,
 
       case UncompressedGray:
         assert(header.bitsPerPixel == 8);
-        if (readUncompressedData<uint8_t>(header.width, &Decoder::read8))
+        if (readUncompressedData<uint8_t>(header.width, &Decoder::read8Color))
           return true;
         break;
 
       case RleIndexed:
         assert(header.bitsPerPixel == 8);
-        if (readRleData<uint8_t>(header.width, &Decoder::read8))
+        if (readRleData<uint8_t>(header.width, &Decoder::read8Color))
           return true;
         break;
 
@@ -189,7 +189,7 @@ bool Decoder::readImage(const Header& header,
 
       case RleGray:
         assert(header.bitsPerPixel == 8);
-        if (readRleData<uint8_t>(header.width, &Decoder::read8))
+        if (readRleData<uint8_t>(header.width, &Decoder::read8Color))
           return true;
         break;
     }
@@ -251,7 +251,7 @@ template<typename T>
 bool Decoder::readUncompressedData(const int w, color_t (Decoder::*readPixel)())
 {
   for (int x=0; x<w; ++x) {
-    if (m_iterator.putPixel<T>((this->*readPixel)()))
+    if (m_iterator.putPixel<T>(static_cast<T>((this->*readPixel)())))
       return true;
   }
   return false;
@@ -270,7 +270,7 @@ bool Decoder::readRleData(const int w, color_t (Decoder::*readPixel)())
     if (c & 0x80) {
       c = (c & 0x7f) + 1;
       x += c;
-      const T pixel = (this->*readPixel)();
+      const T pixel = static_cast<T>((this->*readPixel)());
       while (c-- > 0)
         if (m_iterator.putPixel<T>(pixel))
           return true;
@@ -279,7 +279,7 @@ bool Decoder::readRleData(const int w, color_t (Decoder::*readPixel)())
       ++c;
       x += c;
       while (c-- > 0) {
-        if (m_iterator.putPixel<T>((this->*readPixel)()))
+        if (m_iterator.putPixel<T>(static_cast<T>((this->*readPixel)())))
           return true;
       }
     }
@@ -287,13 +287,13 @@ bool Decoder::readRleData(const int w, color_t (Decoder::*readPixel)())
   return false;
 }
 
-uint32_t Decoder::read8()
+uint8_t Decoder::read8()
 {
   return m_file->read8();
 }
 
 // Reads a WORD (16 bits) using in little-endian byte ordering.
-uint32_t Decoder::read16()
+uint16_t Decoder::read16()
 {
   uint8_t b1 = m_file->read8();
   uint8_t b2 = m_file->read8();
@@ -321,7 +321,7 @@ uint32_t Decoder::read32()
     return 0;
 }
 
-uint32_t Decoder::read32AsRgb()
+color_t Decoder::read32AsRgb()
 {
   const uint8_t b = read8();
   const uint8_t g = read8();
@@ -332,7 +332,7 @@ uint32_t Decoder::read32AsRgb()
   return rgba(r, g, b, a);
 }
 
-uint32_t Decoder::read24AsRgb()
+color_t Decoder::read24AsRgb()
 {
   const uint8_t b = read8();
   const uint8_t g = read8();
@@ -340,7 +340,7 @@ uint32_t Decoder::read24AsRgb()
   return rgba(r, g, b, 255);
 }
 
-uint32_t Decoder::read16AsRgb()
+color_t Decoder::read16AsRgb()
 {
   const uint16_t v = read16();
   uint8_t a = 255;

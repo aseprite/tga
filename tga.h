@@ -281,12 +281,14 @@ namespace tga {
     template<typename T>
     bool readRleData(const int w, uint32_t (Decoder::*readPixel)());
 
-    uint32_t read8();
-    uint32_t read16();
+    uint8_t read8();
+    uint16_t read16();
     uint32_t read32();
-    uint32_t read32AsRgb();
-    uint32_t read24AsRgb();
-    uint32_t read16AsRgb();
+
+    color_t read32AsRgb();
+    color_t read24AsRgb();
+    color_t read16AsRgb();
+    color_t read8Color() { return (color_t)read8(); }
 
     FileInterface* m_file;
     bool m_hasAlpha = false;
@@ -307,18 +309,20 @@ namespace tga {
   private:
     template<typename T>
     void writeRleScanline(const int w, const Image& image,
-                          int y, void (Encoder::*writePixel)(color_t));
+                          void (Encoder::*writePixel)(color_t));
 
     template<typename T>
     void countRepeatedPixels(const int w, const Image& image,
-                             int x0, int y, int& offset, int& count);
+                             int x0, int& offset, int& count);
 
-    void write8(uint32_t value);
-    void write16(uint32_t value);
+    void write8(uint8_t value);
+    void write16(uint16_t value);
     void write32(uint32_t value);
-    void write16Rgb(uint32_t c);
-    void write24Rgb(uint32_t c);
-    void write32Rgb(uint32_t c);
+
+    void write8Color(color_t c) { write8(uint8_t(c)); }
+    void write16Rgb(color_t c);
+    void write24Rgb(color_t c);
+    void write32Rgb(color_t c);
 
     FileInterface* m_file;
     bool m_hasAlpha = false;
