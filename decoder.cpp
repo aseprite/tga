@@ -1,5 +1,5 @@
 // Aseprite TGA Library
-// Copyright (C) 2020  Igara Studio S.A.
+// Copyright (C) 2020-2022  Igara Studio S.A.
 //
 // This file is released under the terms of the MIT license.
 // Read LICENSE.txt for more information.
@@ -250,7 +250,7 @@ void Decoder::postProcessImage(const Header& header,
 template<typename T>
 bool Decoder::readUncompressedData(const int w, color_t (Decoder::*readPixel)())
 {
-  for (int x=0; x<w; ++x) {
+  for (int x=0; x<w && m_file->ok(); ++x) {
     if (m_iterator.putPixel<T>(static_cast<T>((this->*readPixel)())))
       return true;
   }
