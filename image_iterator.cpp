@@ -1,5 +1,5 @@
 // Aseprite TGA Library
-// Copyright (C) 2020  Igara Studio S.A.
+// Copyright (C) 2020-2022  Igara Studio S.A.
 //
 // This file is released under the terms of the MIT license.
 // Read LICENSE.txt for more information.
@@ -29,7 +29,7 @@ ImageIterator::ImageIterator(const Header& header, Image& image)
 bool ImageIterator::advance()
 {
   m_x += m_dx;
-  m_ptr += m_dx*m_image->bytesPerPixel;
+  m_ptr += int(m_dx*m_image->bytesPerPixel);
 
   if ((m_dx < 0 && m_x < 0) ||
       (m_dx > 0 && m_x == m_w)) {
