@@ -180,7 +180,10 @@ void Encoder::writeRleScanline(const int w,
       const color_t c = m_iterator.getPixel<T>();
 
       for (int i=1; i<n; ++i) {
-        const color_t c2 = m_iterator.getPixel<T>();
+#ifndef NDEBUG
+        const color_t c2 =
+#endif
+          m_iterator.getPixel<T>();
         assert(c == c2);
       }
 
